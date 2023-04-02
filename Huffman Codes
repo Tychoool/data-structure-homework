@@ -1,0 +1,278 @@
+#include <cstddef>
+#include <cstdlib>
+#include <stdio.h>
+#define MaxSize 64
+typedef struct HFNode* HFTree;
+typedef struct HPNode* Heap;
+typedef Heap MinHeap;
+typedef struct SNode* PtrSNode;
+typedef struct SNode* Stack;
+int Weights[MaxSize];
+struct HFNode{
+    int weight;
+    HFTree l;
+    HFTree r;
+};
+struct HPNode{
+    HFTree* HFs;
+    int size;
+    int Capacity;
+};
+struct SNode{
+    HFTree* HFs;
+    int maxsize;
+    int Top;
+};
+
+Heap CreatHeap(int maxsize)
+ {
+    Heap hp=(Heap)malloc(sizeof(struct HPNode));
+    hp->Capacity=maxsize;
+    hp->size=0;
+    hp->HFs=(HFTree*)malloc(sizeof(HFTree)*(maxsize+1));
+    for(int i=0;i<maxsize+1;i++){
+        hp->HFs[i]=(HFTree)malloc(sizeof(struct HFNode));
+        hp->HFs[i]->weight=0;
+        hp->HFs[i]->r=NULL;
+        hp->HFs[i]->l=NULL;
+    }
+    hp->HFs[0]->weight=0;
+    return hp;
+ }
+
+bool IsFullHeap(Heap HP)
+{
+    if(HP->size==HP->Capacity) return 1;
+    return 0; 
+}
+
+bool IsEmptyHeap(Heap HP)
+{
+    if (HP->size==0) return 1;
+    return 0;
+}
+
+bool InsertMinHeap(MinHeap MHP,HFTree HF)
+{
+    if(IsFullHeap(MHP)) return 0;
+    int a=HF->weight;
+    int tmp;
+    for (tmp=++MHP->size;a<MHP->HFs[tmp/2]->weight;tmp=tmp/2){
+    MHP->HFs[tmp]=MHP->HFs[tmp/2];
+    }
+    MHP->HFs[tmp]=HF;
+    return 1;
+} 
+
+HFTree DeleteMinHeap(MinHeap MHP)
+{
+    if (IsEmptyHeap(MHP)) return NULL;
+    HFTree minhf=MHP->HFs[1];
+    HFTree lasthf=MHP->HFs[MHP->size--];
+    int x=lasthf->weight;
+    int parent,child;
+    for (parent=1; parent*2<=MHP->size; parent=child) {
+        child=parent*2;
+        if (child+1<=MHP->size&&MHP->HFs[child+1]->weight<MHP->HFs[child]->weight) child++;//找左右儿子里小的
+        if (x<=MHP->HFs[child+1]->weight) break;
+        else
+        MHP->HFs[parent]=MHP->HFs[child];
+    }
+    MHP->HFs[parent]=lasthf;
+    return minhf;
+}
+
+void PercDown(MinHeap MHP,int Root){ //下滤
+    int x=MHP->HFs[Root]->weight;
+    int parent,child;
+    HFTree tmp;
+    for(parent=Root;parent*2<=MHP->size;parent=child){
+        child=parent*2;
+        if (child+1<=MHP->size&&MHP->HFs[child+1]->weight<MHP->HFs[child]->weight) child++;
+        if (x<MHP->HFs[child]->weight) break;
+        else{
+            tmp=MHP->HFs[parent];
+            MHP->HFs[parent]=MHP->HFs[child];
+            MHP->HFs[child]=tmp;
+        }
+    }
+}
+
+void BuildMinHeap(MinHeap MHP){
+    int position;
+    for (position=MHP->size/2; position>0; position--) {
+        PercDown(MHP, position);
+    }
+}
+
+HFTree CreatHFTree(MinHeap MHP,int N){
+    HFTree ltree;
+    HFTree rtree;
+    HFTree tmp;
+    for (int i=1; i<N; i++) {
+        ltree=DeleteMinHeap(MHP);
+        rtree=DeleteMinHeap(MHP);
+        tmp=(HFTree)malloc(sizeof(struct HFNode));
+        tmp->l=ltree;
+        tmp->r=rtree;
+        tmp->weight=ltree->weight+rtree->weight;
+        InsertMinHeap(MHP, tmp);
+    }
+    return DeleteMinHeap(MHP);
+}
+
+Stack CreatStack(int maxsize){
+    Stack s=(Stack)malloc(sizeof(struct SNode));
+    s->HFs=(HFTree*)malloc(sizeof(HFTree)*maxsize);
+    s->Top=-1;
+    s->maxsize=maxsize;
+    return s;
+}
+
+bool IsEmptyHeap(Stack S){
+    if (S->Top==-1) {
+    return 1;
+    }
+    return 0;
+}
+
+bool IsFullStack(Stack S){
+    if (S->Top==S->maxsize-1) {
+        return 1;
+    }
+    return 0;
+}
+
+void PushStack(Stack S,HFTree HF){
+    if (IsFullStack(S)) {
+    return;
+    }
+    S->HFs[++S->Top]=HF;
+}
+
+HFTree PopStack(Stack S){
+    if (IsEmptyHeap(S)) return NULL;
+    HFTree hf=S->HFs[S->Top--];  
+    return hf;
+}
+
+int TotalWeight(HFTree HF,int N){
+    int totalweight=0;
+    Stack s=CreatStack(N);
+    HFTree pre=NULL;
+    while(HF||!IsEmptyHeap(s)){
+        while(HF){
+            PushStack(s, HF);
+            HF=HF->l;
+        }
+        HF=s->HFs[s->Top];
+        if (HF->r&&HF->r!=pre) {
+            HF=HF->l;
+        }
+        else {
+            if(!HF->l&&!HF->r){
+                totalweight+=s->Top*HF->weight;
+            }
+            pre=PopStack(s);
+            free(pre);
+            HF=NULL;
+        }
+    }
+    free(s->HFs);
+    free(s);
+    return totalweight;
+}
+
+void Initialize(int n,MinHeap MHP){
+    char c;
+    int weight;
+    for (int i=0; i<n; i++) {
+        scanf("%c",&c);
+        scanf("%d",&weight);
+        getchar();
+        MHP->HFs[i+1]->weight=weight;
+        MHP->size++;
+        Weights[i]=weight;
+    }
+}
+
+void judge(int n,int bestweight)
+{
+    int flag=0;
+    HFTree hf=(HFTree)malloc(sizeof(struct HFNode));
+    hf->l=NULL;
+    hf->r=NULL;
+    hf->weight=0;
+    char c;
+    char direct;
+    for (int i=0; i<n; i++) {
+        HFTree tmp=hf;
+        scanf("%c",&c);
+        do {
+            scanf("%c",&direct);
+            if (!flag) {
+                if (direct=='1') {
+                    if (tmp->r==NULL) {
+                        HFTree newhf=(HFTree)malloc(sizeof(struct HFNode));
+                        newhf->weight=0;
+                        newhf->l=NULL;
+                        newhf->r=NULL;
+                        tmp->r=newhf;
+                        tmp=newhf;
+                    }
+                    else {
+                        if (!tmp->r->l&&!tmp->r->r) {
+                            flag=1;
+                        }
+                        tmp=tmp->r;
+                    }
+                } 
+                else if(direct=='0'){
+                    if(tmp->l==NULL){
+                        HFTree newhf=(HFTree)malloc(sizeof(struct HFNode));
+                        newhf->weight=0;
+                        newhf->l=NULL;
+                        newhf->r=NULL;
+                        tmp->l=newhf;
+                        tmp=newhf;
+                    }
+                    else {
+                        if (!tmp->l->l&&!tmp->l->r) {
+                            flag=1;
+                        }
+                        tmp=tmp->l;
+                    }
+                }
+                else {
+                    if (!tmp->l&&!tmp->r) {
+                        tmp->weight=Weights[i];
+                    }
+                    else {
+                        flag=1;
+                    }
+                }
+            }
+        }while (direct!='\n');
+    }
+    int totalweight=TotalWeight(hf, 2*n-1);
+    if (!flag&&totalweight==bestweight) printf("Yes");
+    else printf("No");
+}
+
+int main()
+{
+    int n,l;
+    scanf("%d",&n);
+    MinHeap MHP=CreatHeap(n);
+    Initialize(n,MHP);
+    BuildMinHeap(MHP);
+    HFTree hf =CreatHFTree(MHP,n);
+    scanf("%d",&l);
+    int bestweight=TotalWeight(hf,2*n-1);
+    for(int i=0;i<l;i++){
+        judge(n,bestweight);
+        if(i!=l-1)
+        printf("\n");
+    }
+    return 0;
+}
